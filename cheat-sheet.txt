@@ -43,3 +43,39 @@ dotnet add .\src\Web.Api\ reference .\src\Infrastructure\
 
 git config --global init.defaultBranch main
 git branch -m master main
+
+#Debug
+CTRL + SHIFT + P:
+>Debug: Select and Start Debugging -> C# -> http|https
+
+# Build image
+podman build -t notes-template-app -f src/Web.Api/Dockerfile . 
+
+podman image ls notes-template-app
+
+podman volume ls
+
+# Generate dev certificate:
+dotnet dev-certs https -ep "$env:USERPROFILE\.aspnet\https\aspnetapp.pfx" -p root.123
+dotnet dev-certs https --trust 
+
+# Run container:
+podman run -p 5001:5001 -p 5000:5000 --name notes-template-app -e ASPNETCORE_ENVIRONMENT=Development -e ConnectionStrings__Database="Host=host.containers.internal;Port=5432;Database=notes_template_db;Username=postgres;Password=root.123;Include Error Detail=true" -e ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx -e ASPNETCORE_Kestrel__Certificates__Default__Password=root.123 -v "$env:USERPROFILE\.aspnet\https:/https:ro" notes-template-app
+
+# Create and Run container: The ` is PowerShell's line continuation character (equivalent to \ in bash).
+podman run -p 5001:5001 -p 5000:5000 --name notes-template-app `
+    -e ASPNETCORE_ENVIRONMENT=Development `
+    -e ConnectionStrings__Database="Host=host.containers.internal;Port=5432;Database=notes_template_db;Username=postgres;Password=root.123;Include Error Detail=true" `
+    -e ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx `
+    -e ASPNETCORE_Kestrel__Certificates__Default__Password=root.123 `
+    -v "$env:USERPROFILE\.aspnet\https:/https:ro" `
+    notes-template-app
+
+# Stop and Start the container:
+podman stop notes-template-app
+podman start notes-template-app
+
+# Remove container:
+podman rm notes-template-app
+
+
