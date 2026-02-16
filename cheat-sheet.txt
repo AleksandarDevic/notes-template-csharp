@@ -1,3 +1,7 @@
+########################################
+# .NET Project Setup
+########################################
+
 dotnet new list
 
 dotnet new sln --format slnx -n TemplateApp
@@ -16,7 +20,7 @@ dotnet sln add .\src\Domain\
 dotnet sln add .\src\SharedKernel\
 
 
-dotnet new buildprops 
+dotnet new buildprops
 #Central Package Management(CPM)
 dotnet new packagesprops
 
@@ -124,3 +128,93 @@ podman exec notes-template-api ls -la /https
 podman exec notes-template-api ls -la /app
 podman volume ls
 podman volume inspect notes_template_db_data
+
+
+########################################
+# Kubernetes (Minikube)
+########################################
+
+# 1. Start minikube
+minikube status
+minikube start
+minikube profile list
+
+# 2. Build app image inside minikube
+#    (Podman on host and minikube don't share images, so build directly in minikube)
+& minikube -p minikube podman-env --shell powershell | Invoke-Expression   # only for current terminal session
+podman image build -t notes-template-app:latest -f src/Web.Api/Dockerfile .
+
+# 3. Deploy Postgres
+kubectl apply -f .\k8s\postgres-configmap.yaml
+kubectl apply -f .\k8s\postgres-sealed-secret.yaml
+kubectl apply -f .\k8s\postgres-pv.yaml
+kubectl apply -f .\k8s\postgres-pvc.yaml
+kubectl apply -f .\k8s\postgres-deployment.yaml
+kubectl apply -f .\k8s\postgres-service.yaml
+
+# 4. Deploy Web API
+kubectl create secret generic webapp-cert --from-file=aspnetapp.pfx=$HOME/.aspnet/https/aspnetapp.pfx
+kubectl apply -f .\k8s\webapp-configmap.yaml
+kubectl apply -f .\k8s\webapp-sealed-secret.yaml
+kubectl apply -f .\k8s\webapp-deployment.yaml
+kubectl apply -f .\k8s\webapp-service.yaml
+
+# 5. Verify
+kubectl get all
+kubectl get pods
+kubectl get svc
+kubectl get pv
+kubectl get pvc
+kubectl get secret
+kubectl get configmap
+
+# 6. Logs / Debug
+kubectl logs -f deployment/webapp-deployment
+kubectl logs -f deployment/postgres-deployment
+kubectl describe pod <pod-name>
+kubectl exec -it <pod-name> -- bash
+kubectl exec -it <pod-name> -- psql -h localhost -U postgres --password -p 5432
+kubectl exec -it <pod-name> -- ls -la /https
+
+# 7. Access services
+minikube service list
+minikube service webapp-service
+minikube service webapp-service --url
+kubectl port-forward service/webapp-service 5001:5001 5000:5000    # webapp on localhost:5001/5000
+kubectl port-forward deployment/postgres-deployment 5432:5432       # DB on localhost:5432 (e.g. DBeaver)
+
+# 8. After code changes (rebuild + redeploy)
+podman image build -t notes-template-app:latest -f src/Web.Api/Dockerfile .
+kubectl rollout restart deployment/webapp-deployment
+
+# 9. Teardown
+kubectl delete -f .\k8s
+
+########################################
+# Sealed Secrets (encrypt secrets for git)
+########################################
+
+# 1. Install controller in cluster (one time)
+kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/latest/download/controller.yaml
+kubectl get pods -n kube-system -l name=sealed-secrets-controller
+
+# 2. Install kubeseal CLI (one time)
+#    Download from: https://github.com/bitnami-labs/sealed-secrets/releases/latest
+#    Extract kubeseal.exe and copy to C:\Windows\System32\
+kubeseal --version
+
+# 3. Verify connection to controller
+kubeseal --fetch-cert
+
+# 4. Encrypt secrets (run after changing secret YAML files)
+Get-Content .\k8s\postgres-secret.yaml | kubeseal --format yaml > .\k8s\postgres-sealed-secret.yaml
+Get-Content .\k8s\webapp-secret.yaml | kubeseal --format yaml > .\k8s\webapp-sealed-secret.yaml
+
+# 5. Apply sealed secrets and restart deployments (pods don't auto-reload env vars)
+kubectl apply -f .\k8s\postgres-sealed-secret.yaml
+kubectl apply -f .\k8s\webapp-sealed-secret.yaml
+kubectl rollout restart deployment/postgres-deployment
+kubectl rollout restart deployment/webapp-deployment
+
+# Note: original secret YAML files are in .gitignore (contain plain text passwords)
+#       sealed secret YAML files are safe to commit (encrypted with cluster's public key)

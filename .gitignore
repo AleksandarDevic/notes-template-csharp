@@ -482,3 +482,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local configuration for kubectl
+k8s/postgres-secret.yaml
+k8s/webapp-secret.yaml

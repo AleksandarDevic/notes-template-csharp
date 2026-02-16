@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-config
+data:
+  ASPNETCORE_ENVIRONMENT: Development
+  ASPNETCORE_HTTP_PORTS: "8080"
+  ASPNETCORE_HTTPS_PORTS: "8081"
+  ASPNETCORE_Kestrel__Certificates__Default__Path: /https/aspnetapp.pfx
