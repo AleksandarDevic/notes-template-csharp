@@ -1,0 +1,45 @@
+dotnet new list
+
+dotnet new sln --format slnx -n TemplateApp
+
+dotnet new webapi -o src/Web.Api
+dotnet new classlib -o src/Application
+dotnet new classlib -o src/Infrastructure
+dotnet new classlib -o src/Domain
+dotnet new classlib -o src/SharedKernel
+
+
+dotnet sln add .\src\Web.Api\
+dotnet sln add .\src\Application\
+dotnet sln add .\src\Infrastructure\
+dotnet sln add .\src\Domain\
+dotnet sln add .\src\SharedKernel\
+
+
+dotnet new buildprops 
+#Central Package Management(CPM)
+dotnet new packagesprops
+
+dotnet new nugetconfig -n NuGet.Config
+
+dotnet build
+
+dotnet run --project .\src\Web.Api\ --launch-profile https
+
+https://localhost:7119/openapi/v1.json
+http://localhost:5079/openapi/v1.json
+
+dotnet new gitignore
+
+dotnet add .\src\Web.Api\ package Scalar.AspNetCore
+
+https://localhost:7119/scalar
+https://localhost:5079/scalar
+
+dotnet add .\src\Domain\ reference .\src\SharedKernel\
+dotnet add .\src\Application\ reference .\src\Domain\
+dotnet add .\src\Infrastructure\ reference .\src\Application\
+dotnet add .\src\Web.Api\ reference .\src\Infrastructure\
+
+git config --global init.defaultBranch main
+git branch -m master main
