@@ -25,10 +25,8 @@ RUN dotnet publish "Web.Api.csproj" -c Release -o /app/publish
 
 # Stage 3: Run the application
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
-ENV ASPNETCORE_HTTPS_PORTS=5001
-ENV ASPNETCORE_HTTP_PORTS=5000
-EXPOSE 5001
-EXPOSE 5000
+EXPOSE 8080
+EXPOSE 8081
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT [ "dotnet", "Web.Api.dll" ]
