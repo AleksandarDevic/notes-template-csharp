@@ -1,0 +1,32 @@
+name: Build and Deploy to DEV
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    uses: AleksandarDevic/reusable-workflows/.github/workflows/build-and-test-dotnet-app.yml@main
+    with:
+      DOTNET_VERSION: "${{ vars.DOTNET_VERSION }}"
+    secrets: inherit
+
+  create-deploy-package:
+    needs: [build-and-test]
+    uses: AleksandarDevic/reusable-workflows/.github/workflows/build-and-upload-dotnet-deployment-artifact.yml@main
+    with:
+      DOTNET_VERSION: "${{ vars.DOTNET_VERSION }}"
+      PROJECT_PATH: "${{ vars.PROJECT_PATH }}"
+    secrets: inherit
+
+  deploy-dev:
+    needs: [create-deploy-package]
+    uses: ./.github/workflows/deploy.yml
+    with:
+      target: "dev"
+      DOTNET_VERSION: "${{ vars.DOTNET_VERSION }}"
+    secrets: inherit
