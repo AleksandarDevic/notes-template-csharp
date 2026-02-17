@@ -1,0 +1,17 @@
+name: Build and Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: AleksandarDevic/reusable-workflows/.github/workflows/build-and-test-dotnet-app.yml@main
+    with:
+      DOTNET_VERSION: "${{ vars.DOTNET_VERSION }}"
+    secrets: inherit

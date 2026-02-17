@@ -1,0 +1,47 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        required: true
+      DOTNET_VERSION:
+        type: string
+        required: true
+      EF_CORE_TOOLS_VERSION:
+        type: string
+        required: false
+        default: "10.*"
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    environment: ${{ inputs.target }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "${{ inputs.DOTNET_VERSION }}"
+
+      - name: Download directory artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: deploy-artifact-${{ github.run_id}}-${{ github.run_number }}-${{ github.run_attempt }}
+          path: output
+
+      - name: Install EF Tools
+        run: dotnet tool install --global dotnet-ef --version ${{ inputs.EF_CORE_TOOLS_VERSION }}
+
+      # - name: Apply EF migrations
+      #   run: dotnet ef database update --project ${{ vars.MIGRATION_PROJECT}} --connection "${{ secrets.DATABASE_CONNECTIONSTRING }}"
+
+      - name: Deploy application
+        run: echo "TODO - Deploy to ${{ inputs.target }}"
