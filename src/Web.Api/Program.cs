@@ -8,8 +8,11 @@ using Web.Api.Extensions;
 using Asp.Versioning.Builder;
 using Asp.Versioning;
 using Web.Api;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, loggerConfig) => loggerConfig.ReadFrom.Configuration(context.Configuration));
 
 builder.Services
     .AddApplication()
@@ -46,6 +49,10 @@ app.MapHealthChecks("health", new HealthCheckOptions
 });
 
 app.UseHttpsRedirection();
+
+app.UseRequestContextLogging();
+
+app.UseSerilogRequestLogging();
 
 app.UseExceptionHandler();
 
