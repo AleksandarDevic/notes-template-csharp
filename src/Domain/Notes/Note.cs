@@ -12,7 +12,6 @@ public sealed class Note : Entity
 
     public required NoteStatus Status { get; set; }
 
-
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
 }

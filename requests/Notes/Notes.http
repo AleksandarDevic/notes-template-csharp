@@ -1,0 +1,5 @@
+
+GET {{host}}/api/v1/notes
+Accept: application/json
+
+###

@@ -486,3 +486,5 @@ $RECYCLE.BIN/
 # Local configuration for kubectl
 k8s/postgres-secret.yaml
 k8s/webapp-secret.yaml
+
+terraform/
