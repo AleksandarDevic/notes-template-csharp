@@ -1,11 +1,13 @@
 ﻿using Application.Abstractions.Data;
 using Infrastructure.Database;
 using Infrastructure.DomainEvents;
+using Infrastructure.Outbox;
 using Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SharedKernel;
 
 namespace Infrastructure;
@@ -25,6 +27,8 @@ public static class DependencyInjection
 
         services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
 
+        services.TryAddSingleton<InsertOutboxMessagesInterceptor>();
+
         return services;
     }
 
@@ -32,11 +36,12 @@ public static class DependencyInjection
     {
         string? connectionString = configuration.GetConnectionString("Database");
 
-        services.AddDbContext<ApplicationDbContext>(
-            options => options
+        services.AddDbContext<ApplicationDbContext>((sp, options) =>
+            options
                 .UseNpgsql(connectionString, npgsqlOptions =>
                     npgsqlOptions.MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Default))
-                .UseSnakeCaseNamingConvention());
+                .UseSnakeCaseNamingConvention()
+                .AddInterceptors(sp.GetRequiredService<InsertOutboxMessagesInterceptor>()));
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 

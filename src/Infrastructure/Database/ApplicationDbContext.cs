@@ -16,6 +16,7 @@ public sealed class ApplicationDbContext(
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // modelBuilder.ApplyConfiguration(new NoteConfiguration());
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
         modelBuilder.ApplyUtcDateTimeConverter();
@@ -35,9 +36,9 @@ public sealed class ApplicationDbContext(
         //     - eventual consistency
         //     - handlers can fail
 
-        int result = await base.SaveChangesAsync(cancellationToken);
+        // await PublishDomainEventsAsync();
 
-        await PublishDomainEventsAsync();
+        int result = await base.SaveChangesAsync(cancellationToken);
 
         return result;
     }
