@@ -12,7 +12,7 @@ namespace Infrastructure.Database.Migrations.PostgreSQL
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "outbox_message",
+                name: "outbox_messages",
                 schema: "public",
                 columns: table => new
                 {
@@ -25,13 +25,13 @@ namespace Infrastructure.Database.Migrations.PostgreSQL
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_outbox_message", x => x.id);
+                    table.PrimaryKey("pk_outbox_messages", x => x.id);
                 });
 
             migrationBuilder.CreateIndex(
                 name: "idx_outbox_messages_unprocessed",
                 schema: "public",
-                table: "outbox_message",
+                table: "outbox_messages",
                 columns: new[] { "occurred_on_utc", "processed_on_utc" },
                 filter: "processed_on_utc IS NULL")
                 .Annotation("Npgsql:IndexInclude", new[] { "id", "type", "content" });
@@ -41,7 +41,7 @@ namespace Infrastructure.Database.Migrations.PostgreSQL
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "outbox_message",
+                name: "outbox_messages",
                 schema: "public");
         }
     }

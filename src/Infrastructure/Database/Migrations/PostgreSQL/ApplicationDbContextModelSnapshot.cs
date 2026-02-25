@@ -94,7 +94,7 @@ namespace Infrastructure.Database.Migrations.PostgreSQL
                         .HasColumnName("type");
 
                     b.HasKey("Id")
-                        .HasName("pk_outbox_message");
+                        .HasName("pk_outbox_messages");
 
                     b.HasIndex("OccurredOnUtc", "ProcessedOnUtc")
                         .HasDatabaseName("idx_outbox_messages_unprocessed")
@@ -102,7 +102,7 @@ namespace Infrastructure.Database.Migrations.PostgreSQL
 
                     NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("OccurredOnUtc", "ProcessedOnUtc"), new[] { "Id", "Type", "Content" });
 
-                    b.ToTable("outbox_message", "public");
+                    b.ToTable("outbox_messages", "public");
                 });
 #pragma warning restore 612, 618
         }
