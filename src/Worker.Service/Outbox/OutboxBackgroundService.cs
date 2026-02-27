@@ -12,7 +12,7 @@ internal sealed class OutboxBackgroundService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("OutboxBackgroundService starting...");
+        OutboxLoggers.LogStarting(logger);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, cts.Token);
@@ -34,15 +34,15 @@ internal sealed class OutboxBackgroundService(
         }
         catch (OperationCanceledException ex)
         {
-            logger.LogInformation(ex, "OutboxBackgroundService stopping due to cancellation.");
+            OutboxLoggers.LogOperationCancelled(logger);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred in OutboxBackgroundService");
+            OutboxLoggers.LogError(logger, ex);
         }
         finally
         {
-            logger.LogInformation("OutboxBackgroundService finished.");
+            OutboxLoggers.LogFinished(logger, _totalIteration, _totalProcessedMessages);
         }
     }
 
@@ -55,11 +55,12 @@ internal sealed class OutboxBackgroundService(
         {
             var iterationCount = Interlocked.Increment(ref _totalIteration);
 
+            OutboxLoggers.LogStartingIteration(logger, iterationCount);
+
             int processedMessages = await outboxProcessor.Execute(cancellationToken);
             var totalProcessedMessages = Interlocked.Add(ref _totalProcessedMessages, processedMessages);
 
-            logger.LogInformation("OutboxBackgroundService iteration {IterationCount} processed {ProcessedMessages} messages. Total processed: {TotalProcessedMessages}",
-                iterationCount, processedMessages, totalProcessedMessages);
+            OutboxLoggers.LogIterationCompleted(logger, iterationCount, processedMessages, totalProcessedMessages);
 
             // Simulate running Outbox processing every N seconds
             // await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);

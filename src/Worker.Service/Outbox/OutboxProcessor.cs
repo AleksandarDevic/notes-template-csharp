@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 using Dapper;
 using Domain.Outbox;
@@ -6,16 +7,22 @@ using Npgsql;
 
 namespace Worker.Service.Outbox;
 
-internal sealed class OutboxProcessor(NpgsqlDataSource dataSource)
+internal sealed class OutboxProcessor(
+    NpgsqlDataSource dataSource,
+    ILogger<OutboxProcessor> logger)
 {
     private const int BatchSize = 1000;
     private static readonly ConcurrentDictionary<string, Type> TypeCache = new();
 
     public async Task<int> Execute(CancellationToken cancellationToken = default)
     {
+        var totalStopwatch = Stopwatch.StartNew();
+        var stepStopwatch = new Stopwatch();
+
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        stepStopwatch.Restart();
         var outboxMessages = (await connection.QueryAsync<OutboxMessage>(
             """
             SELECT id as Id, type as Type, content as Content
@@ -26,41 +33,90 @@ internal sealed class OutboxProcessor(NpgsqlDataSource dataSource)
             """,
             new { BatchSize },
             transaction: transaction)).AsList();
+        var queryTime = stepStopwatch.ElapsedMilliseconds;
 
         var updateQueue = new ConcurrentQueue<OutboxUpdate>();
 
-        foreach (var outboxMessage in outboxMessages)
+        // foreach (var outboxMessage in outboxMessages)
+        // {
+        //     await ProcessMessage(outboxMessage, updateQueue, cancellationToken);
+        // }
+
+        stepStopwatch.Restart();
+        var processTasks = outboxMessages.Select(message =>
+            ProcessMessage(message, updateQueue, cancellationToken))
+            .ToList();
+        await Task.WhenAll(processTasks);
+        var processingTime = stepStopwatch.ElapsedMilliseconds;
+
+        // foreach (var message in updateQueue)
+        // {
+        //     await connection.ExecuteAsync(
+        //         """
+        //             UPDATE outbox_messages
+        //             SET processed_on_utc = @ProcessedOnUtc, error = @Error
+        //             WHERE id = @Id
+        //             """,
+        //         new { ProcessedOnUtc = message.ProcessedOnUtc, Error = message.Error, Id = message.Id },
+        //         transaction: transaction);
+        // }
+
+        stepStopwatch.Restart();
+        if (!updateQueue.IsEmpty)
         {
-            try
-            {
-                var messageType = GetOrAddMessageType(outboxMessage.Type);
-                var deserializedMessage = JsonSerializer.Deserialize(outboxMessage.Content, messageType);
-
-                // TODO: Process the deserialized message (e.g., publish to a message broker, invoke handlers, etc.)
-
-                updateQueue.Enqueue(new OutboxUpdate { Id = outboxMessage.Id, ProcessedOnUtc = DateTime.UtcNow });
-            }
-            catch (Exception ex)
-            {
-                updateQueue.Enqueue(new OutboxUpdate { Id = outboxMessage.Id, ProcessedOnUtc = DateTime.UtcNow, Error = ex.ToString() });
-            }
-        }
-
-        foreach (var message in updateQueue)
-        {
-            await connection.ExecuteAsync(
+            var updateSql =
                 """
-                    UPDATE outbox_messages
-                    SET processed_on_utc = @ProcessedOnUtc, error = @Error
-                    WHERE id = @Id
-                    """,
-                new { ProcessedOnUtc = message.ProcessedOnUtc, Error = message.Error, Id = message.Id },
-                transaction: transaction);
+                UPDATE outbox_messages
+                SET processed_on_utc = v.processed_on_utc, error = v.error
+                FROM (VALUES {0}) AS v(id, processed_on_utc, error)
+                WHERE outbox_messages.id = v.id::uuid
+                """;
+
+            var updates = updateQueue.ToList();
+            var valuesList = string.Join(",",
+                updates.Select((item, index) => $"(@Id{index}, @ProcessedOnUtc{index}, @Error{index})"));
+
+            var parameters = new DynamicParameters();
+
+            for (int i = 0; i < updates.Count; i++)
+            {
+                parameters.Add($"Id{i}", updates[i].Id.ToString());
+                parameters.Add($"ProcessedOnUtc{i}", updates[i].ProcessedOnUtc);
+                parameters.Add($"Error{i}", updates[i].Error);
+            }
+
+            var formattedSql = string.Format(updateSql, valuesList);
+
+            await connection.ExecuteAsync(formattedSql, parameters, transaction: transaction);
         }
+        var updateTime = stepStopwatch.ElapsedMilliseconds;
 
         await transaction.CommitAsync(cancellationToken);
 
+        totalStopwatch.Stop();
+        var totalTime = totalStopwatch.ElapsedMilliseconds;
+
+        OutboxLoggers.LogProcessingPerformance(logger, totalTime, queryTime, processingTime, updateTime, outboxMessages.Count);
+
         return outboxMessages.Count;
+    }
+
+    private static async Task ProcessMessage(OutboxMessage outboxMessage, ConcurrentQueue<OutboxUpdate> updateQueue, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var messageType = GetOrAddMessageType(outboxMessage.Type);
+            var deserializedMessage = JsonSerializer.Deserialize(outboxMessage.Content, messageType);
+
+            // TODO: Process the deserialized message (e.g., publish to a message broker, invoke handlers, etc.)
+            await Task.CompletedTask;
+
+            updateQueue.Enqueue(new OutboxUpdate { Id = outboxMessage.Id, ProcessedOnUtc = DateTime.UtcNow });
+        }
+        catch (Exception ex)
+        {
+            updateQueue.Enqueue(new OutboxUpdate { Id = outboxMessage.Id, ProcessedOnUtc = DateTime.UtcNow, Error = ex.ToString() });
+        }
     }
 
     private static Type GetOrAddMessageType(string typeName)
