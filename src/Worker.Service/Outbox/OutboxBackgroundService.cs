@@ -6,22 +6,31 @@ internal sealed class OutboxBackgroundService(
     : BackgroundService
 {
     private const int OutboxProcessorFrequency = 10;
+    private readonly int _maxParallelism = 5;
+    private int _totalIteration = 0;
+    private int _totalProcessedMessages = 0;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        logger.LogInformation("OutboxBackgroundService starting...");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, cts.Token);
+
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = _maxParallelism,
+            CancellationToken = linkedCts.Token
+        };
+
         try
         {
-            logger.LogInformation("OutboxBackgroundService starting...");
-
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                using var scope = serviceScopeFactory.CreateScope();
-                var outboxProcessor = scope.ServiceProvider.GetRequiredService<OutboxProcessor>();
-
-                await outboxProcessor.Execute(stoppingToken);
-            }
-
-            // Simulate running Outbox processing every N seconds
-            await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), stoppingToken);
+            await Parallel.ForEachAsync(
+                Enumerable.Range(0, _maxParallelism),
+                parallelOptions, async (index, cancellationToken) =>
+                {
+                    await ProcessOutboxMessages(cancellationToken);
+                });
         }
         catch (OperationCanceledException ex)
         {
@@ -35,5 +44,26 @@ internal sealed class OutboxBackgroundService(
         {
             logger.LogInformation("OutboxBackgroundService finished.");
         }
+    }
+
+    private async Task ProcessOutboxMessages(CancellationToken cancellationToken)
+    {
+        using var scope = serviceScopeFactory.CreateScope();
+        var outboxProcessor = scope.ServiceProvider.GetRequiredService<OutboxProcessor>();
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var iterationCount = Interlocked.Increment(ref _totalIteration);
+
+            int processedMessages = await outboxProcessor.Execute(cancellationToken);
+            var totalProcessedMessages = Interlocked.Add(ref _totalProcessedMessages, processedMessages);
+
+            logger.LogInformation("OutboxBackgroundService iteration {IterationCount} processed {ProcessedMessages} messages. Total processed: {TotalProcessedMessages}",
+                iterationCount, processedMessages, totalProcessedMessages);
+
+            // Simulate running Outbox processing every N seconds
+            // await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);
+        }
+
     }
 }
