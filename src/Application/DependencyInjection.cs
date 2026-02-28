@@ -32,6 +32,11 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
 
+        return services;
+    }
+
+    public static IServiceCollection AddDomainEventHandlers(this IServiceCollection services)
+    {
         services.Scan(scan => scan.FromAssembliesOf(typeof(DependencyInjection))
             .AddClasses(classes => classes.AssignableTo(typeof(IDomainEventHandler<>)), publicOnly: false)
             .AsImplementedInterfaces()

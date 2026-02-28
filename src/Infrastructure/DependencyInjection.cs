@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 using SharedKernel;
 
 namespace Infrastructure;
@@ -24,8 +25,6 @@ public static class DependencyInjection
     private static IServiceCollection AddServices(this IServiceCollection services)
     {
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
-
-        services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
 
         services.TryAddSingleton<InsertOutboxMessagesInterceptor>();
 
@@ -44,6 +43,20 @@ public static class DependencyInjection
                 .AddInterceptors(sp.GetRequiredService<InsertOutboxMessagesInterceptor>()));
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
+
+        return services;
+    }
+
+    public static IServiceCollection AddOutboxProcessing(this IServiceCollection services, IConfiguration configuration)
+    {
+        string connectionString = configuration.GetConnectionString("Database")
+            ?? throw new InvalidOperationException("Connection string 'Database' not found.");
+
+        services.AddSingleton(_ => new NpgsqlDataSourceBuilder(connectionString).Build());
+
+        services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
+
+        services.AddScoped<OutboxProcessor>();
 
         return services;
     }

@@ -20,7 +20,4 @@ internal static partial class OutboxLoggers
     [LoggerMessage(Level = LogLevel.Information, Message = "OutboxBackgroundService finished. Total iterations: {IterationCount}, Total processed messages: {TotalProcessedMessages}")]
     internal static partial void LogFinished(ILogger logger, int iterationCount, int totalProcessedMessages);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Outbox processing completed. Total time: {TotalTime}ms, Query time: {QueryTime}ms, Publish time: {PublishTime}ms, Update time: {UpdateTime}ms, Messages processed: {MessageCount}")]
-    internal static partial void LogProcessingPerformance(ILogger logger, long totalTime, long queryTime, long publishTime, long updateTime, int messageCount);
-
 }

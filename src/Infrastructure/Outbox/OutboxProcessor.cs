@@ -3,12 +3,16 @@ using System.Diagnostics;
 using System.Text.Json;
 using Dapper;
 using Domain.Outbox;
+using Infrastructure.DomainEvents;
+using Microsoft.Extensions.Logging;
 using Npgsql;
+using SharedKernel;
 
-namespace Worker.Service.Outbox;
+namespace Infrastructure.Outbox;
 
-internal sealed class OutboxProcessor(
+public sealed class OutboxProcessor(
     NpgsqlDataSource dataSource,
+    IDomainEventsDispatcher domainEventsDispatcher,
     ILogger<OutboxProcessor> logger)
 {
     private const int BatchSize = 1000;
@@ -37,16 +41,11 @@ internal sealed class OutboxProcessor(
 
         var updateQueue = new ConcurrentQueue<OutboxUpdate>();
 
-        // foreach (var outboxMessage in outboxMessages)
-        // {
-        //     await ProcessMessage(outboxMessage, updateQueue, cancellationToken);
-        // }
-
         stepStopwatch.Restart();
-        var processTasks = outboxMessages.Select(message =>
-            ProcessMessage(message, updateQueue, cancellationToken))
-            .ToList();
-        await Task.WhenAll(processTasks);
+        foreach (var outboxMessage in outboxMessages)
+        {
+            await ProcessMessage(outboxMessage, updateQueue, cancellationToken);
+        }
         var processingTime = stepStopwatch.ElapsedMilliseconds;
 
         // foreach (var message in updateQueue)
@@ -96,20 +95,20 @@ internal sealed class OutboxProcessor(
         totalStopwatch.Stop();
         var totalTime = totalStopwatch.ElapsedMilliseconds;
 
-        OutboxLoggers.LogProcessingPerformance(logger, totalTime, queryTime, processingTime, updateTime, outboxMessages.Count);
+        OutboxProcessorLoggers.LogProcessingPerformance(logger, totalTime, queryTime, processingTime, updateTime, outboxMessages.Count);
 
         return outboxMessages.Count;
     }
 
-    private static async Task ProcessMessage(OutboxMessage outboxMessage, ConcurrentQueue<OutboxUpdate> updateQueue, CancellationToken cancellationToken)
+    private async Task ProcessMessage(OutboxMessage outboxMessage, ConcurrentQueue<OutboxUpdate> updateQueue, CancellationToken cancellationToken)
     {
         try
         {
-            var messageType = GetOrAddMessageType(outboxMessage.Type);
+            Type messageType = GetOrAddMessageType(outboxMessage.Type);
             var deserializedMessage = JsonSerializer.Deserialize(outboxMessage.Content, messageType);
 
-            // TODO: Process the deserialized message (e.g., publish to a message broker, invoke handlers, etc.)
-            await Task.CompletedTask;
+            if (deserializedMessage is IDomainEvent domainEvent)
+                await domainEventsDispatcher.DispatchAsync([domainEvent], cancellationToken);
 
             updateQueue.Enqueue(new OutboxUpdate { Id = outboxMessage.Id, ProcessedOnUtc = DateTime.UtcNow });
         }
@@ -121,7 +120,6 @@ internal sealed class OutboxProcessor(
 
     private static Type GetOrAddMessageType(string typeName)
         => TypeCache.GetOrAdd(typeName, name => Domain.AssemblyReference.Assembly.GetType(name)!);
-
 
     private readonly struct OutboxUpdate
     {

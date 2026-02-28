@@ -1,3 +1,5 @@
+using Infrastructure.Outbox;
+
 namespace Worker.Service.Outbox;
 
 internal sealed class OutboxBackgroundService(
@@ -32,7 +34,7 @@ internal sealed class OutboxBackgroundService(
                     await ProcessOutboxMessages(cancellationToken);
                 });
         }
-        catch (OperationCanceledException ex)
+        catch (OperationCanceledException)
         {
             OutboxLoggers.LogOperationCancelled(logger);
         }

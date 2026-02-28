@@ -32,7 +32,7 @@ internal sealed class InsertOutboxMessagesInterceptor : SaveChangesInterceptor
             .Select(domainEvent => new OutboxMessage
             {
                 Id = Guid.NewGuid(),
-                Type = domainEvent.GetType().FullName,
+                Type = domainEvent.GetType().FullName!,
                 Content = JsonSerializer.Serialize(domainEvent, domainEvent.GetType()),
                 OccurredOnUtc = DateTime.UtcNow,
             })

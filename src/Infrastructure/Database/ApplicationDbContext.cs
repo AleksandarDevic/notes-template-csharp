@@ -1,15 +1,12 @@
 ﻿using Application.Abstractions.Data;
 using Domain.Notes;
-using Infrastructure.DomainEvents;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
-using SharedKernel;
 
 namespace Infrastructure.Database;
 
 public sealed class ApplicationDbContext(
-    DbContextOptions<ApplicationDbContext> options,
-    IDomainEventsDispatcher domainEventsDispatcher)
+    DbContextOptions<ApplicationDbContext> options)
     : DbContext(options), IApplicationDbContext
 {
     public DbSet<Note> Notes { get; set; }
@@ -43,21 +40,21 @@ public sealed class ApplicationDbContext(
         return result;
     }
 
-    private async Task PublishDomainEventsAsync()
-    {
-        var domainEvents = ChangeTracker
-            .Entries<Entity>()
-            .Select(entry => entry.Entity)
-            .SelectMany(entity =>
-            {
-                List<IDomainEvent> domainEvents = entity.DomainEvents;
+    // private async Task PublishDomainEventsAsync()
+    // {
+    //     var domainEvents = ChangeTracker
+    //         .Entries<Entity>()
+    //         .Select(entry => entry.Entity)
+    //         .SelectMany(entity =>
+    //         {
+    //             List<IDomainEvent> domainEvents = entity.DomainEvents;
 
-                entity.ClearDomainEvents();
+    //             entity.ClearDomainEvents();
 
-                return domainEvents;
-            })
-            .ToList();
+    //             return domainEvents;
+    //         })
+    //         .ToList();
 
-        await domainEventsDispatcher.DispatchAsync(domainEvents);
-    }
+    //     await domainEventsDispatcher.DispatchAsync(domainEvents);
+    // }
 }
