@@ -7,7 +7,7 @@ internal sealed class OutboxBackgroundService(
     ILogger<OutboxBackgroundService> logger)
     : BackgroundService
 {
-    private const int OutboxProcessorFrequency = 5;
+    private const int OutboxProcessorFrequency = 10;
     private readonly int _maxParallelism = 1; // You can adjust this based on your needs
     private int _totalIteration = 0;
     private int _totalProcessedMessages = 0;
@@ -47,23 +47,34 @@ internal sealed class OutboxBackgroundService(
 
     private async Task ProcessOutboxMessages(CancellationToken cancellationToken)
     {
-        using var scope = serviceScopeFactory.CreateScope();
-        var outboxProcessor = scope.ServiceProvider.GetRequiredService<OutboxProcessor>();
-
         while (!cancellationToken.IsCancellationRequested)
         {
-            var iterationCount = Interlocked.Increment(ref _totalIteration);
+            try
+            {
+                using var scope = serviceScopeFactory.CreateScope();
+                var outboxProcessor = scope.ServiceProvider.GetRequiredService<OutboxProcessor>();
 
-            OutboxLoggers.LogStartingIteration(logger, iterationCount);
+                var iterationCount = Interlocked.Increment(ref _totalIteration);
 
-            int processedMessages = await outboxProcessor.Execute(cancellationToken);
-            var totalProcessedMessages = Interlocked.Add(ref _totalProcessedMessages, processedMessages);
+                OutboxLoggers.LogStartingIteration(logger, iterationCount);
 
-            OutboxLoggers.LogIterationCompleted(logger, iterationCount, processedMessages, totalProcessedMessages);
+                int processedMessages = await outboxProcessor.Execute(cancellationToken);
+                var totalProcessedMessages = Interlocked.Add(ref _totalProcessedMessages, processedMessages);
 
-            // Simulate running Outbox processing every N seconds
-            await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);
+                OutboxLoggers.LogIterationCompleted(logger, iterationCount, processedMessages, totalProcessedMessages);
+
+                if (processedMessages == 0)
+                    await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                OutboxLoggers.LogError(logger, ex);
+                await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);
+            }
         }
-
     }
 }
