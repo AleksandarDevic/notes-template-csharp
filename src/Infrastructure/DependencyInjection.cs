@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.AI;
+using Application.Abstractions.AI;
 using Application.Abstractions.Data;
 using Infrastructure.AI;
 using Infrastructure.Database;
@@ -23,7 +23,17 @@ public static class DependencyInjection
         services
             .AddServices()
             .AddDatabase(configuration)
+            .AddAI(configuration)
             .AddHealthChecks(configuration);
+
+    public static IServiceCollection AddOutboxProcessing(this IServiceCollection services)
+    {
+        services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
+
+        services.AddScoped<OutboxProcessor>();
+
+        return services;
+    }
 
     private static IServiceCollection AddServices(this IServiceCollection services)
     {
@@ -36,7 +46,10 @@ public static class DependencyInjection
 
     private static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
     {
-        string? connectionString = configuration.GetConnectionString("Database");
+        string connectionString = configuration.GetConnectionString("Database")
+            ?? throw new InvalidOperationException("Connection string 'Database' not found.");
+
+        services.AddSingleton(_ => new NpgsqlDataSourceBuilder(connectionString).Build());
 
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
             options
@@ -50,21 +63,7 @@ public static class DependencyInjection
         return services;
     }
 
-    public static IServiceCollection AddOutboxProcessing(this IServiceCollection services, IConfiguration configuration)
-    {
-        string connectionString = configuration.GetConnectionString("Database")
-            ?? throw new InvalidOperationException("Connection string 'Database' not found.");
-
-        services.AddSingleton(_ => new NpgsqlDataSourceBuilder(connectionString).Build());
-
-        services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
-
-        services.AddScoped<OutboxProcessor>();
-
-        return services;
-    }
-
-    public static IServiceCollection AddAI(this IServiceCollection services, IConfiguration configuration)
+    private static IServiceCollection AddAI(this IServiceCollection services, IConfiguration configuration)
     {
         string ollamaUrl = configuration.GetConnectionString("Ollama")
             ?? throw new InvalidOperationException("Connection string 'Ollama' not found.");
@@ -84,5 +83,4 @@ public static class DependencyInjection
 
         return services;
     }
-
 }
