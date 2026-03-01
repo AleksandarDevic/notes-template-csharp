@@ -7,7 +7,7 @@ internal sealed class OutboxBackgroundService(
     ILogger<OutboxBackgroundService> logger)
     : BackgroundService
 {
-    private const int OutboxProcessorFrequency = 10;
+    private const int OutboxProcessorFrequency = 5;
     private readonly int _maxParallelism = 1; // You can adjust this based on your needs
     private int _totalIteration = 0;
     private int _totalProcessedMessages = 0;
@@ -16,13 +16,10 @@ internal sealed class OutboxBackgroundService(
     {
         OutboxLoggers.LogStarting(logger);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, cts.Token);
-
         var parallelOptions = new ParallelOptions
         {
             MaxDegreeOfParallelism = _maxParallelism,
-            CancellationToken = linkedCts.Token
+            CancellationToken = stoppingToken
         };
 
         try
@@ -65,7 +62,7 @@ internal sealed class OutboxBackgroundService(
             OutboxLoggers.LogIterationCompleted(logger, iterationCount, processedMessages, totalProcessedMessages);
 
             // Simulate running Outbox processing every N seconds
-            // await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);
         }
 
     }

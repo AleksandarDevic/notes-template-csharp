@@ -15,3 +15,10 @@ Content-Type: application/json
 }
 
 ###
+
+# Get note by id
+@noteId = da8dee53-2103-4b5f-845a-50ac8c1f6b49
+GET {{host}}/api/v1/notes/{{noteId}}
+Accept: application/json
+
+###
