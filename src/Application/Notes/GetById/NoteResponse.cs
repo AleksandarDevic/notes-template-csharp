@@ -1,6 +1,6 @@
 using Domain.Notes;
 
-namespace Application.Notes.Get;
+namespace Application.Notes.GetById;
 
 public sealed record NoteResponse
 {

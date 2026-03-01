@@ -8,7 +8,7 @@ internal sealed class OutboxBackgroundService(
     : BackgroundService
 {
     private const int OutboxProcessorFrequency = 10;
-    private readonly int _maxParallelism = 5;
+    private readonly int _maxParallelism = 1; // You can adjust this based on your needs
     private int _totalIteration = 0;
     private int _totalProcessedMessages = 0;
 

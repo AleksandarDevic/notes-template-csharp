@@ -1,4 +1,6 @@
-﻿using Application.Abstractions.Data;
+﻿using Application.Abstractions.AI;
+using Application.Abstractions.Data;
+using Infrastructure.AI;
 using Infrastructure.Database;
 using Infrastructure.DomainEvents;
 using Infrastructure.Outbox;
@@ -9,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
+using OllamaSharp;
 using SharedKernel;
 
 namespace Infrastructure;
@@ -57,6 +60,18 @@ public static class DependencyInjection
         services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
 
         services.AddScoped<OutboxProcessor>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddAI(this IServiceCollection services, IConfiguration configuration)
+    {
+        string ollamaUrl = configuration.GetConnectionString("Ollama")
+            ?? throw new InvalidOperationException("Connection string 'Ollama' not found.");
+
+        services.AddChatClient(new OllamaApiClient(new Uri(ollamaUrl), "llama3.2:latest"));
+
+        services.AddScoped<INoteCategoryService, OllamaService>();
 
         return services;
     }

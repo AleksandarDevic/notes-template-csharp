@@ -5,9 +5,11 @@
   <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
     <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="OllamaSharp" />
   </ItemGroup>
 </Project>
