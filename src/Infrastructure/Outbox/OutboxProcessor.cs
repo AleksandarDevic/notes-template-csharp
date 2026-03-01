@@ -16,6 +16,7 @@ public sealed class OutboxProcessor(
     ILogger<OutboxProcessor> logger)
 {
     private const int BatchSize = 1000;
+    private const int MaxRetryCount = 3;
     private static readonly ConcurrentDictionary<string, Type> TypeCache = new();
 
     public async Task<int> Execute(CancellationToken cancellationToken = default)
@@ -29,7 +30,7 @@ public sealed class OutboxProcessor(
         stepStopwatch.Restart();
         var outboxMessages = (await connection.QueryAsync<OutboxMessage>(
             """
-            SELECT id as Id, type as Type, content as Content
+            SELECT id as Id, type as Type, content as Content, retry_count as RetryCount
             FROM outbox_messages
             WHERE processed_on_utc IS NULL
             ORDER BY occurred_on_utc LIMIT @BatchSize
@@ -66,14 +67,14 @@ public sealed class OutboxProcessor(
             var updateSql =
                 """
                 UPDATE outbox_messages
-                SET processed_on_utc = v.processed_on_utc, error = v.error
-                FROM (VALUES {0}) AS v(id, processed_on_utc, error)
+                SET processed_on_utc = v.processed_on_utc, error = v.error, retry_count = v.retry_count
+                FROM (VALUES {0}) AS v(id, processed_on_utc, error, retry_count)
                 WHERE outbox_messages.id = v.id::uuid
                 """;
 
             var updates = updateQueue.ToList();
             var valuesList = string.Join(",",
-                updates.Select((item, index) => $"(@Id{index}, @ProcessedOnUtc{index}, @Error{index})"));
+                updates.Select((item, index) => $"(@Id{index}, @ProcessedOnUtc{index}::timestamp with time zone, @Error{index}, @RetryCount{index})"));
 
             var parameters = new DynamicParameters();
 
@@ -82,6 +83,7 @@ public sealed class OutboxProcessor(
                 parameters.Add($"Id{i}", updates[i].Id.ToString());
                 parameters.Add($"ProcessedOnUtc{i}", updates[i].ProcessedOnUtc);
                 parameters.Add($"Error{i}", updates[i].Error);
+                parameters.Add($"RetryCount{i}", updates[i].RetryCount);
             }
 
             var formattedSql = string.Format(updateSql, valuesList);
@@ -110,11 +112,19 @@ public sealed class OutboxProcessor(
             if (deserializedMessage is IDomainEvent domainEvent)
                 await domainEventsDispatcher.DispatchAsync([domainEvent], cancellationToken);
 
-            updateQueue.Enqueue(new OutboxUpdate { Id = outboxMessage.Id, ProcessedOnUtc = DateTime.UtcNow });
+            updateQueue.Enqueue(new OutboxUpdate { Id = outboxMessage.Id, ProcessedOnUtc = DateTime.UtcNow, RetryCount = outboxMessage.RetryCount });
         }
         catch (Exception ex)
         {
-            updateQueue.Enqueue(new OutboxUpdate { Id = outboxMessage.Id, ProcessedOnUtc = DateTime.UtcNow, Error = ex.ToString() });
+            bool isLastRetry = outboxMessage.RetryCount + 1 >= MaxRetryCount;
+
+            updateQueue.Enqueue(new OutboxUpdate
+            {
+                Id = outboxMessage.Id,
+                ProcessedOnUtc = isLastRetry ? DateTime.UtcNow : null,
+                Error = ex.ToString(),
+                RetryCount = outboxMessage.RetryCount + 1
+            });
         }
     }
 
@@ -124,7 +134,8 @@ public sealed class OutboxProcessor(
     private readonly struct OutboxUpdate
     {
         public Guid Id { get; init; }
-        public DateTime ProcessedOnUtc { get; init; }
+        public DateTime? ProcessedOnUtc { get; init; }
         public string? Error { get; init; }
+        public int RetryCount { get; init; }
     }
 }
