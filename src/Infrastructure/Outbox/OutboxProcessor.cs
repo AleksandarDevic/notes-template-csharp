@@ -5,6 +5,7 @@ using Dapper;
 using Domain.Outbox;
 using Infrastructure.DomainEvents;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using SharedKernel;
 
@@ -13,10 +14,10 @@ namespace Infrastructure.Outbox;
 public sealed class OutboxProcessor(
     NpgsqlDataSource dataSource,
     IDomainEventsDispatcher domainEventsDispatcher,
+    IOptions<OutboxOptions> options,
     ILogger<OutboxProcessor> logger)
 {
-    private const int BatchSize = 1000;
-    private const int MaxRetryCount = 3;
+    private readonly OutboxOptions _options = options.Value;
     private static readonly ConcurrentDictionary<string, Type> TypeCache = new();
 
     public async Task<int> Execute(CancellationToken cancellationToken = default)
@@ -36,7 +37,7 @@ public sealed class OutboxProcessor(
             ORDER BY occurred_on_utc LIMIT @BatchSize
             FOR UPDATE SKIP LOCKED
             """,
-            new { BatchSize },
+            new { _options.BatchSize },
             transaction: transaction)).AsList();
         var queryTime = stepStopwatch.ElapsedMilliseconds;
 
@@ -116,7 +117,7 @@ public sealed class OutboxProcessor(
         }
         catch (Exception ex)
         {
-            bool isLastRetry = outboxMessage.RetryCount + 1 >= MaxRetryCount;
+            bool isLastRetry = outboxMessage.RetryCount + 1 >= _options.MaxRetryCount;
 
             updateQueue.Enqueue(new OutboxUpdate
             {

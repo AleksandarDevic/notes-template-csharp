@@ -1,14 +1,15 @@
 using Infrastructure.Outbox;
+using Microsoft.Extensions.Options;
 
 namespace Worker.Service.Outbox;
 
 internal sealed class OutboxBackgroundService(
     IServiceScopeFactory serviceScopeFactory,
+    IOptions<OutboxOptions> options,
     ILogger<OutboxBackgroundService> logger)
     : BackgroundService
 {
-    private const int OutboxProcessorFrequency = 10;
-    private readonly int _maxParallelism = 1; // You can adjust this based on your needs
+    private readonly OutboxOptions _options = options.Value;
     private int _totalIteration = 0;
     private int _totalProcessedMessages = 0;
 
@@ -18,14 +19,14 @@ internal sealed class OutboxBackgroundService(
 
         var parallelOptions = new ParallelOptions
         {
-            MaxDegreeOfParallelism = _maxParallelism,
+            MaxDegreeOfParallelism = _options.MaxParallelism,
             CancellationToken = stoppingToken
         };
 
         try
         {
             await Parallel.ForEachAsync(
-                Enumerable.Range(0, _maxParallelism),
+                Enumerable.Range(0, _options.MaxParallelism),
                 parallelOptions, async (index, cancellationToken) =>
                 {
                     await ProcessOutboxMessages(cancellationToken);
@@ -64,7 +65,7 @@ internal sealed class OutboxBackgroundService(
                 OutboxLoggers.LogIterationCompleted(logger, iterationCount, processedMessages, totalProcessedMessages);
 
                 if (processedMessages == 0)
-                    await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);
+                    await Task.Delay(TimeSpan.FromSeconds(_options.ProcessorFrequencySeconds), cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -73,7 +74,7 @@ internal sealed class OutboxBackgroundService(
             catch (Exception ex)
             {
                 OutboxLoggers.LogError(logger, ex);
-                await Task.Delay(TimeSpan.FromSeconds(OutboxProcessorFrequency), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(_options.ProcessorFrequencySeconds), cancellationToken);
             }
         }
     }

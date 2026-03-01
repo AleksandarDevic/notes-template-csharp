@@ -28,6 +28,11 @@ public static class DependencyInjection
 
     public static IServiceCollection AddOutboxProcessing(this IServiceCollection services)
     {
+        services.AddOptions<OutboxOptions>()
+            .BindConfiguration(OutboxOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
 
         services.AddScoped<OutboxProcessor>();
