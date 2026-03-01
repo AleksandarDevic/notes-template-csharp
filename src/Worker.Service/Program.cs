@@ -1,8 +1,11 @@
 using Application;
 using Infrastructure;
+using Serilog;
 using Worker.Service.Outbox;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddSerilog((context, loggerConfig) => loggerConfig.ReadFrom.Configuration(builder.Configuration));
 
 builder.Services.AddDomainEventHandlers();
 builder.Services.AddInfrastructure(builder.Configuration);
