@@ -19,6 +19,8 @@ internal sealed class GetNoteByIdQueryHandler(IApplicationDbContext dbContext)
             Title = note.Title,
             ContentRaw = note.ContentRaw,
             ContentPolished = note.ContentPolished,
+            ContentSummary = note.ContentSummary,
+            KeyPoints = note.KeyPoints,
             Status = note.Status,
             LastUpdatedAtUtc = note.UpdatedAtUtc
         })

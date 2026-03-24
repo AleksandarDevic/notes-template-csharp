@@ -9,6 +9,8 @@ public sealed class Note : Entity
     public required string Title { get; set; }
     public string ContentRaw { get; set; } = string.Empty;
     public string? ContentPolished { get; set; }
+    public string? ContentSummary { get; set; }
+    public string? KeyPoints { get; set; }
 
     public required NoteStatus Status { get; set; }
 

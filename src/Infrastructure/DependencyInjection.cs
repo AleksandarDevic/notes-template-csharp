@@ -77,6 +77,17 @@ public static class DependencyInjection
 
         services.AddScoped<INoteCategoryService, OllamaService>();
 
+        services.AddOptions<AnthropicOptions>()
+            .BindConfiguration(AnthropicOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddScoped<NotePolisherTools>();
+        services.AddScoped<NoteAnalyzerTools>();
+        services.AddScoped<IPolisherAgent, PolisherAgent>();
+        services.AddScoped<IAnalyzerAgent, AnalyzerAgent>();
+        services.AddScoped<INotePolishOrchestrator, NotePolishOrchestrator>();
+
         return services;
     }
 

@@ -22,3 +22,29 @@ GET {{host}}/api/v1/notes/{{noteId}}
 Accept: application/json
 
 ###
+
+# Update note (blocked while ProcessingAI; resets to Draft if AIReady or Completed)
+PUT {{host}}/api/v1/notes/{{noteId}}
+Content-Type: application/json
+
+{
+  "title": "Updated title",
+  "content": "Updated content"
+}
+
+###
+
+# Polish note (triggers AI agents in background)
+POST {{host}}/api/v1/notes/{{noteId}}/polish
+
+###
+
+# Approve note (user satisfied with AI result)
+POST {{host}}/api/v1/notes/{{noteId}}/approve
+
+###
+
+# Reject note (user not satisfied — resets to Draft, clears AI fields)
+POST {{host}}/api/v1/notes/{{noteId}}/reject
+
+###

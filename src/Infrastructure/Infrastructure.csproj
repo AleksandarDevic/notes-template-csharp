@@ -3,6 +3,7 @@
     <ProjectReference Include="..\Application\Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Anthropic" />
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.Extensions.AI" />

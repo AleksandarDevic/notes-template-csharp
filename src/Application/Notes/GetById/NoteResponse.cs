@@ -9,6 +9,8 @@ public sealed record NoteResponse
     public required string Title { get; init; }
     public required string ContentRaw { get; init; }
     public string? ContentPolished { get; init; }
+    public string? ContentSummary { get; init; }
+    public string? KeyPoints { get; init; }
 
     public required NoteStatus Status { get; init; }
 
