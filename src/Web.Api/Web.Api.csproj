@@ -1,5 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <UserSecretsId>8c9ca954-302a-456e-ad46-f08ec8b6e53d</UserSecretsId>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Asp.Versioning.Http" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
