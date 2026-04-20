@@ -16,7 +16,7 @@ builder.Host.UseSerilog((context, loggerConfig) => loggerConfig.ReadFrom.Configu
 
 builder.Services
     .AddApplication()
-    .AddPresentation()
+    .AddPresentation(builder.Configuration)
     .AddInfrastructure(builder.Configuration);
 
 builder.Services.AddEndpoints(Assembly.GetExecutingAssembly());
@@ -49,6 +49,8 @@ app.MapHealthChecks("health", new HealthCheckOptions
 });
 
 app.UseHttpsRedirection();
+
+app.UseCors();
 
 app.UseRequestContextLogging();
 
